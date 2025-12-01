@@ -1,0 +1,489 @@
+"""
+Content Processor - DEPRECATED SQLAlchemy version
+
+⚠️ DEPRECATED: This file uses SQLAlchemy sync operations which are incompatible 
+with MongoDB. Please use content_processor_async.py instead.
+
+For MongoDB async support, use:
+    from app.services.content_processor_async import ContentProcessorAsync
+
+This file is kept for reference only.
+"""
+
+import logging
+from typing import Dict, Any, List, Optional
+from datetime import datetime
+
+from app.services.llm_service import LLMService, LLMProvider
+
+logger = logging.getLogger(__name__)
+
+
+class ContentProcessor:
+    """
+    DEPRECATED: Old SQLAlchemy-based processor.
+    Use ContentProcessorAsync for MongoDB.
+    """
+    
+    def __init__(self, *args, **kwargs):
+        """
+        DEPRECATED: Raises error. Use ContentProcessorAsync instead.
+        """
+        raise DeprecationWarning(
+            "ContentProcessor is deprecated. Use ContentProcessorAsync from "
+            "app.services.content_processor_async for MongoDB support."
+        )
+    
+    def process_legal_documents(self, max_pages: int = 5) -> Dict[str, Any]:  # type: ignore
+        """
+        Crawl and process legal documents from TVPL.
+        
+        Args:
+            max_pages: Maximum pages to crawl
+            
+        Returns:
+            Processing results
+        """
+        # Create crawl log
+        crawl_log = CrawlLog(
+            source="TVPL",
+            crawl_type="legal_docs",
+            status="started"
+        )
+        self.db.add(crawl_log)
+        self.db.commit()
+        
+        try:
+            # Crawl documents
+            logger.info("Starting TVPL crawl...")
+            documents = self.tvpl_crawler.crawl(max_pages=max_pages)
+            
+            crawl_log.items_found = len(documents)
+            processed_count = 0
+            
+            for doc_data in documents:
+                try:
+                    # Check if document already exists
+                    existing_doc = self.db.query(LegalDoc).filter(
+                        LegalDoc.doc_number == doc_data.get('doc_number')
+                    ).first()
+                    
+                    if existing_doc:
+                        logger.info(f"Document {doc_data.get('doc_number')} already exists, skipping...")
+                        continue
+                    
+                    # Process with AI if enabled
+                    if settings.AI_REWRITE_ENABLED and doc_data.get('content_full'):
+                        summary_data = self.llm_service.summarize_legal_doc(
+                            doc_title=doc_data.get('title', ''),
+                            doc_content=doc_data.get('content_full', ''),
+                            doc_number=doc_data.get('doc_number', '')
+                        )
+                        
+                        doc_data['content_summary'] = summary_data.get('executive_summary', '')
+                    
+                    # Create legal document
+                    legal_doc = LegalDoc(
+                        doc_number=doc_data.get('doc_number'),
+                        doc_type=doc_data.get('doc_type'),
+                        title=doc_data.get('title'),
+                        issue_date=doc_data.get('issue_date'),
+                        effective_date=doc_data.get('effective_date'),
+                        signer=doc_data.get('signer'),
+                        issuing_body=doc_data.get('issuing_body'),
+                        content_summary=doc_data.get('content_summary'),
+                        content_full=doc_data.get('content_full'),
+                        original_link=doc_data.get('original_link'),
+                        pdf_url=doc_data.get('pdf_url'),
+                        tags=doc_data.get('tags', [])
+                    )
+                    
+                    self.db.add(legal_doc)
+                    processed_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Error processing document: {e}")
+                    continue
+            
+            # Commit all documents
+            self.db.commit()
+            
+            # Update crawl log
+            crawl_log.items_processed = processed_count
+            crawl_log.status = "completed"
+            crawl_log.completed_at = datetime.now()
+            self.db.commit()
+            
+            logger.info(f"Successfully processed {processed_count}/{len(documents)} legal documents")
+            
+            return {
+                "status": "success",
+                "items_found": len(documents),
+                "items_processed": processed_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in legal document processing: {e}")
+            crawl_log.status = "failed"
+            crawl_log.error_message = str(e)
+            crawl_log.completed_at = datetime.now()
+            self.db.commit()
+            
+            return {
+                "status": "error",
+                "error": str(e)
+            }
+    
+    def process_news_articles(
+        self,
+        sources: Optional[List[str]] = None,
+        max_articles_per_source: int = 10
+    ) -> Dict[str, Any]:
+        """
+        Crawl and process news articles.
+        
+        Args:
+            sources: List of sources to crawl
+            max_articles_per_source: Maximum articles per source
+            
+        Returns:
+            Processing results
+        """
+        # Create crawl log
+        crawl_log = CrawlLog(
+            source=",".join(sources) if sources else "all",
+            crawl_type="news_articles",
+            status="started"
+        )
+        self.db.add(crawl_log)
+        self.db.commit()
+        
+        try:
+            # Crawl articles
+            logger.info("Starting news crawl...")
+            articles = self.news_crawler.crawl(sources=sources, max_articles_per_source=max_articles_per_source)
+            
+            crawl_log.items_found = len(articles)
+            processed_count = 0
+            
+            for article_data in articles:
+                try:
+                    # Check if article already exists
+                    source_url = article_data.get('source_url')
+                    existing_article = self.db.query(Article).filter(
+                        Article.source_url == source_url
+                    ).first()
+                    
+                    if existing_article:
+                        logger.info(f"Article from {source_url} already exists, skipping...")
+                        continue
+                    
+                    # Fetch full content
+                    source_name = article_data.get('source_name')
+                    full_content = self.news_crawler.fetch_article_content(source_url, source_name)
+                    
+                    if not full_content or len(full_content) < settings.MIN_ARTICLE_LENGTH:
+                        logger.warning(f"Article content too short, skipping: {source_url}")
+                        continue
+                    
+                    # Process with AI if enabled
+                    if settings.AI_REWRITE_ENABLED:
+                        rewritten_data = self.llm_service.rewrite_article(
+                            original_text=full_content,
+                            title=article_data.get('title', ''),
+                            source=source_name
+                        )
+                        
+                        title = rewritten_data.get('title', article_data.get('title'))
+                        content_html = rewritten_data.get('content_html', full_content)
+                        summary = rewritten_data.get('summary', article_data.get('summary'))
+                        
+                        # Generate SEO metadata
+                        seo_data = self.llm_service.generate_seo_metadata(title, content_html)
+                        meta_title = seo_data.get('meta_title', title)
+                        meta_description = seo_data.get('meta_description', summary)
+                    else:
+                        title = article_data.get('title')
+                        content_html = full_content
+                        summary = article_data.get('summary')
+                        meta_title = title
+                        meta_description = summary
+                    
+                    # Create article
+                    article = Article(
+                        title=title,
+                        slug=slugify(title),
+                        summary=summary,
+                        content_html=content_html,
+                        source_url=source_url,
+                        source_name=source_name,
+                        author_type='Bot',
+                        disclaimer_level='Medium',
+                        meta_title=meta_title,
+                        meta_description=meta_description,
+                        featured_image_url=article_data.get('featured_image_url'),
+                        status='published' if settings.AUTO_PUBLISH_ENABLED else 'draft',
+                        published_at=datetime.now() if settings.AUTO_PUBLISH_ENABLED else None
+                    )
+                    
+                    self.db.add(article)
+                    processed_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Error processing article: {e}")
+                    continue
+            
+            # Commit all articles
+            self.db.commit()
+            
+            # Update crawl log
+            crawl_log.items_processed = processed_count
+            crawl_log.status = "completed"
+            crawl_log.completed_at = datetime.now()
+            self.db.commit()
+            
+            logger.info(f"Successfully processed {processed_count}/{len(articles)} articles")
+            
+            return {
+                "status": "success",
+                "items_found": len(articles),
+                "items_processed": processed_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in news article processing: {e}")
+            crawl_log.status = "failed"
+            crawl_log.error_message = str(e)
+            crawl_log.completed_at = datetime.now()
+            self.db.commit()
+            
+            return {
+                "status": "error",
+                "error": str(e)
+            }
+    
+    def process_legal_documents_from_data(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Process pre-crawled legal documents data.
+        Used by advanced crawler with externally provided data.
+        
+        Args:
+            documents: List of document dictionaries
+            
+        Returns:
+            Processing results
+        """
+        # Create crawl log
+        crawl_log = CrawlLog(
+            source="TVPL_Advanced",
+            crawl_type="legal_docs",
+            status="started",
+            items_found=len(documents)
+        )
+        self.db.add(crawl_log)
+        self.db.commit()
+        
+        processed_count = 0
+        
+        try:
+            for doc_data in documents:
+                try:
+                    # Check if document already exists
+                    existing_doc = self.db.query(LegalDoc).filter(
+                        LegalDoc.doc_number == doc_data.get('doc_number')
+                    ).first()
+                    
+                    if existing_doc:
+                        logger.info(f"Document {doc_data.get('doc_number')} already exists, skipping...")
+                        continue
+                    
+                    # Process with AI if enabled
+                    if settings.AI_REWRITE_ENABLED and doc_data.get('content_full'):
+                        summary_data = self.llm_service.summarize_legal_doc(
+                            doc_title=doc_data.get('title', ''),
+                            doc_content=doc_data.get('content_full', ''),
+                            doc_number=doc_data.get('doc_number', '')
+                        )
+                        
+                        doc_data['content_summary'] = summary_data.get('executive_summary', '')
+                    
+                    # Map status string to enum
+                    status_map = {
+                        'Active': 'active',
+                        'Expired': 'expired',
+                        'Pending': 'pending'
+                    }
+                    status = status_map.get(doc_data.get('status', 'Active'), 'active')
+                    
+                    # Create legal document
+                    legal_doc = LegalDoc(
+                        doc_number=doc_data.get('doc_number'),
+                        doc_type=doc_data.get('doc_type'),
+                        title=doc_data.get('title'),
+                        issue_date=doc_data.get('issue_date'),
+                        effective_date=doc_data.get('effective_date'),
+                        signer=doc_data.get('signer'),
+                        issuing_body=doc_data.get('issuing_body'),
+                        content_summary=doc_data.get('content_summary') or doc_data.get('abstract'),
+                        content_full=doc_data.get('content_full'),
+                        original_link=doc_data.get('original_link'),
+                        pdf_url=doc_data.get('pdf_url'),
+                        tags=doc_data.get('tags', []),
+                        status=status
+                    )
+                    
+                    self.db.add(legal_doc)
+                    processed_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Error processing document: {e}")
+                    continue
+            
+            # Commit all documents
+            self.db.commit()
+            
+            # Update crawl log
+            crawl_log.items_processed = processed_count
+            crawl_log.status = "completed"
+            crawl_log.completed_at = datetime.now()
+            self.db.commit()
+            
+            logger.info(f"Successfully processed {processed_count}/{len(documents)} legal documents")
+            
+            return {
+                "status": "success",
+                "items_found": len(documents),
+                "items_processed": processed_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in legal document processing: {e}")
+            crawl_log.status = "failed"
+            crawl_log.error_message = str(e)
+            crawl_log.completed_at = datetime.now()
+            self.db.commit()
+            
+            return {
+                "status": "error",
+                "error": str(e)
+            }
+    
+    def process_news_articles_from_data(self, articles: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Process pre-crawled news articles data.
+        Used by advanced crawler with externally provided data.
+        
+        Args:
+            articles: List of article dictionaries
+            
+        Returns:
+            Processing results
+        """
+        # Create crawl log
+        crawl_log = CrawlLog(
+            source="NewsAggregator_Advanced",
+            crawl_type="news_articles",
+            status="started",
+            items_found=len(articles)
+        )
+        self.db.add(crawl_log)
+        self.db.commit()
+        
+        processed_count = 0
+        
+        try:
+            for article_data in articles:
+                try:
+                    # Check if article already exists
+                    source_url = article_data.get('source_url')
+                    existing_article = self.db.query(Article).filter(
+                        Article.source_url == source_url
+                    ).first()
+                    
+                    if existing_article:
+                        logger.info(f"Article from {source_url} already exists, skipping...")
+                        continue
+                    
+                    # Use provided summary or generate from title
+                    summary = article_data.get('summary', article_data.get('title', '')[:200])
+                    
+                    # Process with AI if enabled and content is available
+                    content_html = article_data.get('content_html', '')
+                    if settings.AI_REWRITE_ENABLED and content_html and len(content_html) > 100:
+                        rewritten_data = self.llm_service.rewrite_article(
+                            original_text=content_html,
+                            title=article_data.get('title', ''),
+                            source=article_data.get('source_name', '')
+                        )
+                        
+                        title = rewritten_data.get('title', article_data.get('title'))
+                        content_html = rewritten_data.get('content_html', content_html)
+                        summary = rewritten_data.get('summary', summary)
+                        
+                        # Generate SEO metadata
+                        seo_data = self.llm_service.generate_seo_metadata(title, content_html)
+                        meta_title = seo_data.get('meta_title', title)
+                        meta_description = seo_data.get('meta_description', summary)
+                    else:
+                        title = article_data.get('title')
+                        meta_title = title
+                        meta_description = summary
+                    
+                    # Create article
+                    article = Article(
+                        title=title,
+                        slug=slugify(title),
+                        summary=summary,
+                        content_html=content_html or f"<p>{summary}</p>",
+                        source_url=source_url,
+                        source_name=article_data.get('source_name'),
+                        author_type='Bot',
+                        disclaimer_level='Medium',
+                        meta_title=meta_title,
+                        meta_description=meta_description,
+                        featured_image_url=article_data.get('featured_image_url'),
+                        status='published' if settings.AUTO_PUBLISH_ENABLED else 'draft',
+                        published_at=datetime.now() if settings.AUTO_PUBLISH_ENABLED else None,
+                        is_company_source=article_data.get('is_company_source', False)
+                    )
+                    
+                    self.db.add(article)
+                    processed_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Error processing article: {e}")
+                    continue
+            
+            # Commit all articles
+            self.db.commit()
+            
+            # Update crawl log
+            crawl_log.items_processed = processed_count
+            crawl_log.status = "completed"
+            crawl_log.completed_at = datetime.now()
+            self.db.commit()
+            
+            logger.info(f"Successfully processed {processed_count}/{len(articles)} articles")
+            
+            return {
+                "status": "success",
+                "items_found": len(articles),
+                "items_processed": processed_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in news article processing: {e}")
+            crawl_log.status = "failed"
+            crawl_log.error_message = str(e)
+            crawl_log.completed_at = datetime.now()
+            self.db.commit()
+            
+            return {
+                "status": "error",
+                "error": str(e)
+            }
+    
+    def close(self):
+        """Clean up resources."""
+        self.tvpl_crawler.close()
+        self.news_crawler.close()
