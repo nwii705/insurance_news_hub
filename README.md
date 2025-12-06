@@ -7,7 +7,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104-green)](https://fastapi.tiangolo.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.11-yellow)](https://www.python.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)](https://www.postgresql.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-7.0-green)](https://www.mongodb.com/)
 
 ---
 
@@ -17,9 +17,9 @@
 
 ### Key Features
 
-✅ **Database & API**: PostgreSQL with 7 tables, FastAPI REST API  
+✅ **Database & API**: MongoDB Atlas with Beanie ODM, FastAPI REST API  
 ✅ **Advanced Crawlers**: Proxy rotation, user-agent spoofing, keyword filtering  
-✅ **AI Content Engine**: Claude-powered rewriting and legal document summarization  
+✅ **AI Content Engine**: Claude/Gemini/Mistral-powered rewriting and content processing  
 ✅ **Magazine Frontend**: Trustworthy Blue theme, 5 Pillars navigation, data visualizations  
 ✅ **SEO Optimization**: Schema.org NewsArticle & Legislation schemas, trending keywords  
 ✅ **Legal Safety**: Automated disclaimers, source attribution, dispute warnings
@@ -29,14 +29,16 @@
 ## 📋 Parts Completed
 
 ### ✅ Part 1: Database & API Foundation
-- PostgreSQL schema (articles, legal_docs, companies, resources)
-- SQLAlchemy models with relationships
-- FastAPI REST API with CRUD operations
+
+- MongoDB Atlas with Beanie ODM (articles, legal_docs, companies, resources)
+- Document models with references
+- FastAPI REST API with async CRUD operations
 - Basic crawlers for news and legal docs
 
 📖 **Documentation**: [PART1_DATABASE_API.md](./PART1_DATABASE_API.md)
 
 ### ✅ Part 2: Advanced Crawler Engine
+
 - **Legal Watchdog**: TVPL crawler with proxy rotation, status tracking
 - **News Aggregator**: Multi-source crawling with keyword filtering
 - Retry mechanisms, duplicate detection
@@ -44,6 +46,7 @@
 📖 **Documentation**: [PART2_ADVANCED_CRAWLERS.md](./PART2_ADVANCED_CRAWLERS.md)
 
 ### ✅ Part 3: AI Content Engine
+
 - System Prompt: "Veteran Insurance Journalist in Vietnam"
 - Task 1: Rewrite news with 5Ws structure + dispute disclaimers
 - Task 2: Summarize legal docs as "Bản tin chính sách"
@@ -51,6 +54,7 @@
 📖 **Documentation**: [PART3_AI_CONTENT_ENGINE.md](./PART3_AI_CONTENT_ENGINE.md)
 
 ### ✅ Part 4: Frontend UI/UX (Magazine Style)
+
 - Global Design System (Trustworthy Blue, Merriweather serif)
 - 5 Pillars navigation (Vĩ mô, Thương mại, Xã hội, Tranh luận, Thư viện)
 - Homepage sections: Hero, Tabs, Social Grid, Market Data Widget
@@ -59,6 +63,7 @@
 📖 **Documentation**: [PART4_FRONTEND_MAGAZINE.md](./PART4_FRONTEND_MAGAZINE.md)
 
 ### ✅ Part 5: SEO & Legal Safety Strategy
+
 - Schema.org: NewsArticle, Legislation, BreadcrumbList, FAQPage
 - Trending keywords auto-injection (Google Trends)
 - Global DisclaimerFooter component
@@ -74,16 +79,16 @@
 insurance/
 ├── backend/                       # FastAPI backend
 │   ├── app/
-│   │   ├── models/               # SQLAlchemy ORM
+│   │   ├── models/               # Beanie ODM documents
 │   │   ├── schemas/              # Pydantic validation
 │   │   ├── api/                  # REST endpoints
 │   │   ├── crawlers/             # News & legal crawlers
 │   │   │   ├── tvpl_crawler_advanced.py
 │   │   │   └── news_crawler_advanced.py
-│   │   └── llm/                  # AI content processing
-│   │       ├── prompt_templates.py
-│   │       └── llm_service.py
-│   └── alembic/                  # DB migrations
+│   │   ├── services/             # AI content processing
+│   │   │   ├── prompt_templates.py
+│   │   │   └── llm_service.py
+│   │   └── database.py           # MongoDB connection
 │
 ├── frontend/                      # Next.js 14 App Router
 │   ├── app/
@@ -103,7 +108,7 @@ insurance/
 │           └── metadata.ts       # Next.js metadata utils
 │
 └── database/
-    └── schema.sql                # PostgreSQL schema
+    └── schema.sql                # Legacy SQL schema (not used with MongoDB)
 ```
 
 ---
@@ -111,14 +116,16 @@ insurance/
 ## 🛠️ Technologies
 
 ### Backend
+
 - **Framework**: FastAPI 0.104+
-- **Database**: PostgreSQL 15
-- **ORM**: SQLAlchemy 2.0
-- **AI**: Anthropic Claude API (Sonnet 3.5)
-- **Crawlers**: BeautifulSoup4, Scrapy
+- **Database**: MongoDB Atlas 7.0+
+- **ODM**: Beanie (Motor async driver)
+- **AI**: Claude API, Google Gemini, Mistral AI
+- **Crawlers**: BeautifulSoup4, httpx
 - **Validation**: Pydantic v2
 
 ### Frontend
+
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript 5.0
 - **Styling**: Tailwind CSS + Shadcn/ui
@@ -131,10 +138,11 @@ insurance/
 ## 🚀 Installation
 
 ### Prerequisites
+
 - Node.js 18+
 - Python 3.11+
-- PostgreSQL 15+
-- Anthropic API Key
+- MongoDB Atlas account (free tier)
+- AI API Keys (Claude, Gemini, or Mistral)
 
 ### 1. Backend Setup
 
@@ -146,13 +154,11 @@ pip install -r requirements.txt
 
 # Configure .env
 cp .env.example .env
-# Edit DATABASE_URL, ANTHROPIC_API_KEY
+# Edit MONGODB_URI, AI API keys (GEMINI_API_KEY, MISTRAL_API_KEY, ANTHROPIC_API_KEY)
 
-# Run migrations
-alembic upgrade head
-
-# Start server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Start server (MongoDB connection auto-initializes)
+python main.py
+# Or: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### 2. Frontend Setup
@@ -172,12 +178,34 @@ npm run dev
 
 ### 3. Database Setup
 
-```bash
-# Create database
-createdb insurance_vietnam
+**MongoDB Atlas** (Recommended):
 
-# Apply schema
-psql -d insurance_vietnam -f database/schema.sql
+1. Tạo tài khoản miễn phí tại [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register)
+2. Tạo cluster mới (chọn Free tier M0)
+3. Tạo database user và password
+4. Whitelist IP: `0.0.0.0/0` (cho development)
+5. Lấy connection string:
+   ```
+   mongodb+srv://<username>:<password>@cluster.xxxxx.mongodb.net/?retryWrites=true&w=majority
+   ```
+6. Cập nhật vào `.env`:
+   ```bash
+   MONGODB_URI=mongodb+srv://your-username:your-password@cluster.xxxxx.mongodb.net/
+   MONGODB_DB_NAME=insurance_vietnam_db
+   ```
+
+**Hoặc dùng MongoDB local**:
+
+```bash
+# Install MongoDB Community
+# https://www.mongodb.com/try/download/community
+
+# Start MongoDB
+mongod --dbpath /data/db
+
+# Update .env
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB_NAME=insurance_vietnam_db
 ```
 
 ---
@@ -198,11 +226,11 @@ python -m app.crawlers.tvpl_crawler_advanced
 ### AI Content Processing
 
 ```bash
-# Rewrite article
-python -m app.llm.test_rewrite_news
+# Process articles with AI
+python run_crawlers_async.py  # Crawls and processes articles
 
-# Summarize legal document
-python -m app.llm.test_summarize_legal
+# Check processed content
+python check_database.py
 ```
 
 ### API Endpoints
@@ -238,25 +266,31 @@ GET /api/resources?type=form
 ## 🌐 Deployment
 
 ### Frontend (Vercel)
+
 ```bash
 cd frontend
 vercel --prod
 ```
 
 **Environment**:
+
 - `NEXT_PUBLIC_API_URL`: https://api.insurancenews.vn
 - `NEXT_PUBLIC_SITE_URL`: https://insurancenews.vn
 
 ### Backend (Railway/Render)
+
 ```bash
 cd backend
 railway up  # or render deploy
 ```
 
 **Environment**:
-- `DATABASE_URL`: PostgreSQL connection
-- `ANTHROPIC_API_KEY`: Claude API key
-- `CORS_ORIGINS`: Frontend URL
+
+- `MONGODB_URI`: MongoDB Atlas connection string
+- `MONGODB_DB_NAME`: Database name
+- `GEMINI_API_KEY`: Google Gemini API key
+- `MISTRAL_API_KEY`: Mistral AI API key
+- `ALLOWED_ORIGINS`: Frontend URL
 
 ---
 
@@ -265,6 +299,7 @@ railway up  # or render deploy
 ### Schema.org Implementation
 
 **NewsArticle** (Articles):
+
 ```json
 {
   "@context": "https://schema.org",
@@ -278,6 +313,7 @@ railway up  # or render deploy
 ```
 
 **Legislation** (Legal Docs):
+
 ```json
 {
   "@context": "https://schema.org",
@@ -290,6 +326,7 @@ railway up  # or render deploy
 ```
 
 ### Trending Keywords
+
 - bảo hiểm lừa đảo
 - lãi suất manulife
 - rút bhxh 1 lần
@@ -303,39 +340,41 @@ railway up  # or render deploy
 ### Disclaimer System
 
 **Global Footer** (all pages):
+
 > Thông tin trên website chỉ mang tính chất tham khảo và tổng hợp. Chúng tôi không phải là đơn vị tư vấn luật chính thức.
 
 **Inline Badges**:
+
 - `<DisclaimerBadge type="legal" />` - Legal docs
 - `<DisclaimerBadge type="product" />` - Product reviews
 - `<DisclaimerBadge type="opinion" />` - Opinion articles
 
 **Special Disclaimers**:
+
 - `<DisputeDisclaimer />` - Controversial content
 - `<AIContentDisclaimer />` - AI-rewritten articles
 - `<SourceAttribution />` - Original source links
 
 ---
 
-## 🧪 Testing
+## 🔍 Kiểm tra hệ thống
 
-### Backend
+### Kiểm tra Database
+
 ```bash
 cd backend
-pytest tests/ -v --cov=app
+python check_database.py
 ```
 
-### Frontend
-```bash
-cd frontend
-npm test
-npm run test:e2e
-```
+### Kiểm tra API
+
+- **Swagger UI**: http://localhost:8000/docs
+- **API Health**: http://localhost:8000/health
 
 ### SEO Validation
+
 - **Google Rich Results Test**: https://search.google.com/test/rich-results
 - **Schema Validator**: https://validator.schema.org/
-- **Lighthouse Audit**: `lighthouse https://insurancenews.vn --view`
 
 ---
 
@@ -357,6 +396,7 @@ MIT License - See [LICENSE](./LICENSE) for details
 ## 🤝 Contributing
 
 Contributions welcome! Please:
+
 1. Fork the repository
 2. Create feature branch (`git checkout -b feature/amazing`)
 3. Commit changes (`git commit -m 'Add amazing feature'`)
@@ -376,4 +416,4 @@ Contributions welcome! Please:
 
 **Built with ❤️ for the Vietnamese insurance industry**
 
-📚 **Complete Documentation**: See individual PART*.md files for detailed implementation guides
+📚 **Complete Documentation**: See individual PART\*.md files for detailed implementation guides
