@@ -139,6 +139,7 @@ export default function ViMoPage() {
                 className="text-gray-700 hover:text-trustBlue-600 font-medium pb-1 border-b-2 border-transparent hover:border-trustBlue-600 transition"
               >
                 {tab.label}
+                <span className="ml-1">›</span>
               </button>
             ))}
           </div>

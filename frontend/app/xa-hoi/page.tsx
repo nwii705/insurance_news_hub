@@ -134,7 +134,7 @@ export default function XaHoiPage() {
             Xã hội
           </h1>
 
-          <div className="flex flex-wrap items-center gap-4 border-b border-gray-200 pb-2 text-sm">
+          <div className="flex flex-wrap items-center gap-4 border-b border-gray-200 pb-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}

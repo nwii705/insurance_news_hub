@@ -16,7 +16,7 @@ const NAVIGATION_PILLARS = [
     subCategories: [
       {
         id: "mof-qlgsbh",
-        label: "Bộ Tài chính & Cục QLGSBH",
+        label: "Thị trường & Pháp luật",
         href: "/vi-mo/bo-tai-chinh-qlgsbh",
       },
       {

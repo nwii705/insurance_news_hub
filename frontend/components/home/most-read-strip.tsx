@@ -45,14 +45,21 @@ export function MostReadStrip() {
 
       {/* List */}
       <ul className="divide-y divide-slate-100">
-        {mockMostRead.map((item) => (
+        {mockMostRead.map((item, index) => (
           <li key={item.id}>
             <Link
               href="/articles"
               className="flex gap-4 px-4 py-3 items-center group hover:bg-softGray-50 transition-colors"
             >
+              {/* RANK #1 #2 #3 */}
+              <div className="w-8 text-center flex-shrink-0">
+                <span className="block font-extrabold text-red-600 text-xl leading-none">
+                  #{index + 1}
+                </span>
+              </div>
+
               {/* Thumbnail */}
-              <div className="w-28 h-20 relative rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+              <div className="w-24 h-16 md:w-28 md:h-20 relative rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
                 <Image
                   src={item.image}
                   alt={item.title}

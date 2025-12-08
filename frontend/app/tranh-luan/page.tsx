@@ -140,7 +140,7 @@ export default function TranhLuanPage() {
             Tranh luận
           </h1>
 
-          <div className="flex flex-wrap items-center gap-4 border-b border-gray-200 pb-2 text-sm">
+          <div className="flex flex-wrap items-center gap-4 border-b border-gray-200 pb-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -213,7 +213,7 @@ export default function TranhLuanPage() {
 
         {/* KHU 1: PHÂN TÍCH CASE STUDY */}
         <section className="mb-10 border-t border-softGray-200 pt-6">
-          <h2 className="font-serif text-xl font-bold text-slate-900 mb-4 border-b border-softGray-200 pb-2">
+          <h2 className="font-serif text-xl font-bold text-slate-900 mb-4 border-b border-softGray-200 pb-2 text-lg">
             Phân tích Case Study
           </h2>
 

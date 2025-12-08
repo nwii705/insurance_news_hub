@@ -210,6 +210,11 @@ const SAMPLE_POLICY_TERMS: PolicyTerm[] = [
 export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>("all");
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const YEARS = [
+    2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016,
+    2015, 2014,
+  ];
 
   const filterResources = (resources: Resource[]) => {
     const q = searchQuery.toLowerCase().trim();
@@ -271,6 +276,37 @@ export default function LibraryPage() {
 
       {/* MAIN CONTENT – 3 BLOCKS LIÊN TIẾP */}
       <div className="container mx-auto px-4 py-8 max-w-[1100px] space-y-12">
+        {/* 0. TÀI LIỆU THEO NĂM */}
+        <section>
+          <h2 className="font-serif text-2xl font-bold text-slate-900 mb-4">
+            <span className="inline-block border-b-4 border-alertRed-600 pb-1">
+              Tài liệu theo năm
+            </span>
+          </h2>
+
+          <div className="flex flex-wrap gap-3">
+            {YEARS.map((year) => {
+              const isActive = selectedYear === year;
+              return (
+                <button
+                  key={year}
+                  type="button"
+                  onClick={() =>
+                    setSelectedYear(isActive ? null : year)
+                  }
+                  className={[
+                    "px-5 py-2 rounded-full border text-sm transition",
+                    isActive
+                      ? "bg-alertRed-600 text-white border-alertRed-600"
+                      : "border-alertRed-400 text-alertRed-600 hover:bg-alertRed-50",
+                  ].join(" ")}
+                >
+                  {year}
+                </button>
+              );
+            })}
+          </div>
+        </section>
         {/* 1. VĂN BẢN PHÁP LUẬT */}
         <section>
           <div className="flex items-baseline justify-between mb-3">
